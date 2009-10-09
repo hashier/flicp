@@ -18,7 +18,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boson, MA 02111-1307, USA.
  *
  *  Created:			2002 07 27
- *  Last updated:	2002 08 04
+ *  Last updated:	2002 08 05
  */
 
 #include <stdio.h>
@@ -45,21 +45,22 @@
 int verbose;
 
 void usage(char *progname) {
-	printf("Usage: %s [-v] [-h] [-p port] <localfile> <host>:<path>\n[-u <username>] [-a <adminpw>] <-r rootpw>\n", progname);
+	printf("Usage: %s [-v] [-h] [-p port] [-u <userpw>] [-a <adminpw>] -r <rootpw> <localfile> <host>:<remotefile>\n", progname);
 
 	putchar('\n');
 
-	printf("       %s [-v] [-h] [-p port] <host>:<path> <localfile>\n[-u <username>] [-a <adminpw>] <-r rootpw>\n", progname);
-	printf("       host	remote machine to connect to\n");
-	printf("       path	path to file on remote machine\n");
-	printf("       localfile path to local file\n");
-	printf("       -v	print protocol messages\n");
-	printf("       -p port	alternate port on remote machine\n");
-	printf("       -h	print this help\n");
-	printf("       -u set the userpw\n");
-	printf("       -a set the adminpw\n");
-	printf("       -r set the rootpw\n");
-	printf("       -q silent (stupid with -v)\n");
+	printf("       %s [-v] [-h] [-p port] [-u <userpw>] [-a <adminpw>] -r <rootpw> <host>:<remotefile> <localfile>\n", progname);
+	putchar('\n');
+	printf("       host	       remote machine to connect to\n");
+	printf("       remotefile  path to file on remote machine\n");
+	printf("       localfile   path to local file\n");
+	printf("       -v	         be a little bit more verbose\n");
+	printf("       -p port	   alternate port on remote machine\n");
+	printf("       -h	         print this help\n");
+	printf("       -u          set the userpw\n");
+	printf("       -a          set the adminpw\n");
+	printf("       -r          set the rootpw\n");
+	printf("       -q          silent (stupid with -v)\n");
 	exit(1);
 }
 
@@ -175,8 +176,8 @@ int main (int argc, char *argv[]) {
 
 	host = argv[optind]; /* asume reveive mode */
 	if ((remote_path=strchr(host, ':')) == NULL) { /* send mode */
-		/* flicp ... <localfile> <host>:<remote_path> */  /* <userpw>
-																											 *<adminpw> <rootpw> */
+		/* flicp ... <localfile> <host>:<remote_path> */
+																									
 		localfile = argv[optind++];
 		host = argv[optind++];
 		if ((remote_path=strchr(host, ':')) == NULL)
@@ -195,17 +196,12 @@ int main (int argc, char *argv[]) {
 		}
 	} else { /* receive mode */
 		/* flicp ... <host>:<remote_path> 
-		 * <remotefile(variable localfile)> 
-		 * <userpw>
-		 * <adminpw> <rootpw> */
+		 * <remotefile(variable localfile)>  */
+
 		*remote_path++ = '\0';
 		optind++;
 		localfile = argv[optind++];
-		/*
-			userpw = argv[optind++];
-			adminpw = argv[optind++];
-			rootpw = argv[optind++];
-		*/
+
 		if (!silent) {
 			putchar('\n');
 			printf("userpw: %s\n", userpw);
@@ -291,7 +287,7 @@ int main (int argc, char *argv[]) {
 
 
 
-	if ((tmpdir=opendir(localfile))) { /* filename was a local directory
+	if (!sending && (tmpdir=opendir(localfile))) { /* filename was a local directory
 																			* so we must build the
 																			* local filename from local
 																			* path and remote path
@@ -304,8 +300,6 @@ int main (int argc, char *argv[]) {
 		localfile = strdup(buffer);
 		closedir(tmpdir);
 	}
-
-
 
 	/* stat on filename */
 	bzero(&fbuf,sizeof(fbuf));
@@ -327,7 +321,7 @@ int main (int argc, char *argv[]) {
 				printf("sending");
 			size = fbuf.st_size;
 			/* first send "recevie <filename> <bytes> <rootpw> */
-			snprintf(buffer, sizeof(buffer), "receive %s/%s %d %s\n", remote_path, localfile, size, rootpw);
+			snprintf(buffer, sizeof(buffer), "receive %s %d %s\n", remote_path, size, rootpw);
 			send(fd, buffer, strlen(buffer), 0);
 			bzero(buffer, 1025);
 
@@ -350,7 +344,7 @@ int main (int argc, char *argv[]) {
 			/* ask the server for the requested file */
 			if (!silent)
 				printf("receiving");
-			snprintf(buffer, sizeof(buffer), "send %s/%s %s\n", remote_path, localfile, rootpw);
+			snprintf(buffer, sizeof(buffer), "send %s %s\n", remote_path, rootpw);
 			send(fd, buffer, strlen(buffer), 0);
 
 
@@ -372,7 +366,9 @@ int main (int argc, char *argv[]) {
 			write(filefd, ptr, strlen(ptr));
 			recvBytes = strlen(ptr);
 			
-			send(fd, ACK, 1, 0);
+			if (recvBytes >= size)
+				send(fd, ACK, 1, 0);
+
 			while(recvBytes < size)
 				{
 					nowrecv = recv(fd, buffer, 1024, 0); /* read 1024 bytes from fd */
@@ -395,6 +391,7 @@ int main (int argc, char *argv[]) {
 				if (!silent) {
 					printf("\n === HU, error! FUCK UP ===\nsomething wrong with the counter, just try again, maybe it works now\n");
 					printf("The bug often occur when %s is run often in a short time", argv[0]);
+					/* stupid comment from hashier */
 					if (!silent)
 						printf("\nShutdown fd's\n");
 					close(filefd);
