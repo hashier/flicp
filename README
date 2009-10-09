@@ -1,0 +1,18 @@
+How to use?
+	For gettin' opt.tgz from fli4l use
+	
+	./flicp -u <userpw> -a <adminpw> -r <rootpw> fli4l:/boot/ opt.tgz
+
+	-u and -a are optional, but are required if admin/user pw is set.
+	-r is always required to get/send any file to/from fli.
+
+
+	To send a new opt.tgz to fli4l
+
+	./flicp -u <username> -a <adminpw> -r <rootpw> opt.tgz fli4l:/boot
+
+	Of course /boot must be writeable.
+
+
+For the future:
+	Set another remote filename.
